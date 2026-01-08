@@ -1,8 +1,5 @@
 #include <stdio.h>
-#include <string.h>
-
-#define ERR_ARGS 1
-#define ERR_FORMAT 2
+#include <stdlib.h>
 
 int hex_char_to_val(char letter){
     int idx_alpha = 0;
@@ -59,25 +56,18 @@ void convert_hex(char *hex){
 }
 
 int main(int argc, char *argv[]){
-    int status = 0;
-
     if (argc < 2){
         fprintf(stderr, "Error: enter a hex value\n");
-        status = ERR_FORMAT;
-        goto cleanup;
+        return EXIT_FAILURE;
     }
     
     char *hex = argv[1]; 
 
     if (!(check_hex(hex))){
         fprintf(stderr, "Error: not a valid hex value\n");
-        status = ERR_ARGS;
-        goto cleanup;
+        return EXIT_FAILURE;
     }
 
     convert_hex(hex);
-
-    
-cleanup:
-        return status;
+    return EXIT_SUCCESS;
 }
