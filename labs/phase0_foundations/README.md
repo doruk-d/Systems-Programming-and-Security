@@ -1,6 +1,6 @@
 #### hex_binary.c - Phase 0: Binary Logic Foundations  
 ---
-**Purpose**:  
+**Purpose**  
 
 A command-line tool that converts hexadecimal values to binary representation.  
 
