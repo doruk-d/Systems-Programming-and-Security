@@ -70,7 +70,7 @@ void *my_malloc(size_t size){
         }
 
         block_header_t *new_block = (block_header_t*)((char*)free_block + sizeof(block_header_t) + size);
-        new_block->size = free_block->size - size;
+        new_block->size = free_block->size - size - sizeof(block_header_t); // Subtract header size from the remaining block to prevent heap corruption by over-reporting of the capacity of new block.
         new_block->free = 1;
         new_block->next = free_block->next;
         new_block->prev = free_block;
