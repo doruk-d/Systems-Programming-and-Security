@@ -1,5 +1,8 @@
+#define _DEFAULT_SOURCE /* since the c11 does not include sbrk by default, need to use this macro to include
+                        default Unix extensions */
 #include <stdio.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #define ALLIGN(x) (((x) + 7) & ~7)
 #define MIN_ALLOC_SIZE 16 /* because payload parts in the struct usually recycled but not the pointers since 
@@ -32,7 +35,7 @@ static block_header_t *find_free_block(size_t size){
 
 static block_header_t *request_space(size_t size){
     block_header_t *block;
-    block = sbrk(size + sizeof(block_header_t));
+    block = (block_header_t *)sbrk(size + sizeof(block_header_t));
     if (block == (void*)-1)
         return NULL;
 
@@ -92,10 +95,37 @@ void *my_malloc(size_t size){
         
         return block + 1;
     }
+
+    return NULL;
 }
 
 void my_free(void *ptr){
+    if (ptr == NULL)
+        return;
+    
+    block_header_t *header = (block_header_t *)ptr - 1;
+    header->free = 1;
 
+    if (header->next != NULL && header->next->free == 1){
+        block_header_t *next_block = header->next;
+        header->size += next_block->size + sizeof(block_header_t);
+        header->next = next_block->next;
+        if (header->next != NULL)
+            header->next->prev = header;
 
+        if (tail == next_block)
+            tail = header;
+    }
+
+    if (header->prev != NULL && header->prev->free == 1){
+        block_header_t *prev_block = header->prev;
+        prev_block->size += header->size + sizeof(block_header_t);
+        prev_block->next = header->next; 
+        if (prev_block->next != NULL)
+            prev_block->next->prev = prev_block;
+
+        if (tail == header)
+            tail = prev_block;
+    }
 
 }
