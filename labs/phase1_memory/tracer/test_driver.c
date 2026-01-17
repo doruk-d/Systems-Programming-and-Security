@@ -1,52 +1,52 @@
-#include "tracked_malloc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <limits.h>
+#include "tracked_malloc.h"
 
-typedef struct{
-    int a;
-    char b;
-}test_t;
+void test_clean_alloc(void){
+    printf("==== Test 1: Clean Allocation ====\n");
 
-int main(int argc, char *argv[]){
-    if (argc != 3){
-        printf("error: missing arguments\n");
-        return -1;
+    void *ptr = malloc(100);
+    if (!ptr){
+        perror("Memory could not allocated");
+        return;
     }
 
+    free(ptr);
 
-    char *a1 = argv[1];
-    char *a2 = argv[2];
-    char *end1;
-    char *end2;
-
-    errno = 0;
-    long arg1 = strtol(a1, &end1, 10);
-    long arg2 = strtol(a2, &end2, 10);
-
-    if (errno == ERANGE){
-        fprintf(stderr, "number out of range\n");
-        return -1;
-    }
-
-    if (end1 == a1 || end2 == a2){
-        fprintf(stderr, "invalid numbers\n");
-        return -1;
-    } 
+    printf("Clean allocation/free done.\n");
+}
+void test_memory_leak(void){
+    printf("==== Test 2: Intentional Leak ====\n");
     
-    if (*end1 != '\0' || *end2 != '\0'){
-        fprintf(stderr, "invalid trailing characters\n");
+    void *ptr = malloc(100);
+    if (!ptr){
+        perror("Memory could not allocated");
+        return;
     }
 
+    printf("Allocated 100 bytes at %p (not freed)\n", ptr);
+}
+void test_double_free(void){
+    printf("==== Test 3: Double Free ====\n");
 
-
-    int *arr = tracked_malloc(arg1);
+    void *ptr = malloc(100);
+    if (!ptr){
+        perror("Memory could not allocated");
+        return;
+    }
     
-    test_t *struct_alloc = tracked_malloc(arg2 * sizeof(test_t));
+    free(ptr);
 
-    tracked_free(arr);
-    tracked_free(struct_alloc);
+    printf("First free done. Attempting second free... \n");
 
+    free(ptr);
+}
+
+int main(){
+    test_clean_alloc();
+    test_memory_leak();
+    test_double_free();
+
+    printf("Exiting Main (atexit report can be seen below)\n");
     return 0;
 }
