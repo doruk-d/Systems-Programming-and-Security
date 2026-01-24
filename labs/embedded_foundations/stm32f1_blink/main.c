@@ -47,8 +47,8 @@ void Reset_Handler(){
 void main(){
     RCC_APB2ENR |= (1 << 2);
 
-    GPIOA_CLR &= ~(0xF << (LED * 4));
-    GPIOA_CLR |= (1 << (LED * 4));
+    GPIOA_CRL &= ~(0xF << (LED * 4));
+    GPIOA_CRL |= (1 << (LED * 4));
 
     while (1){
         GPIOA_ODR ^= (1 << LED);
