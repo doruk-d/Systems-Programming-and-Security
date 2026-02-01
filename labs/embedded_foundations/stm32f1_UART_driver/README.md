@@ -21,7 +21,7 @@ Files:
 * Basic Asynchronous UART driver using USART1
 * Transmission functionality 
 * Receiving functionality
-* Flush function to ensure data is sent or received completely without any buffer overflow //apply it for the receiving too
+* Implemented uart_flush() for Transmission to ensure the shift register is empty before power-down or reconfiguration.
 
 ### Implementation Details
 
