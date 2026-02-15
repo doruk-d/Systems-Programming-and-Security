@@ -1,131 +1,206 @@
-#define _DEFAULT_SOURCE /* since the c11 does not include sbrk by default, need to use this macro to include
-                        default Unix extensions */
-#include <stdio.h>
+#define _DEFAULT_SOURCE
+
 #include <unistd.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdalign.h>
 
-#define ALLIGN(x) (((x) + 7) & ~7)
-#define MIN_ALLOC_SIZE 16 /* because payload parts in the struct usually recycled but not the pointers since 
-                          i have 2 its better to choose 16 */
+#define ALIGNMENT (alignof(max_align_t))
 
-typedef struct block_header{
-    size_t size;
-    int free;
-    struct block_header *next;
-    struct block_header *prev;
+typedef union block_header{
+    struct{
+        size_t size_total;
+        int is_free;
+        union block_header *next;
+        union block_header *prev;
+    };
+
+    max_align_t _align_;
 }block_header_t;
 
 
-static block_header_t *head= NULL;
-static block_header_t *tail= NULL;
+static block_header_t *head = NULL;
+static block_header_t *tail = NULL;
 
+static inline size_t align(size_t size);
+static block_header_t *request_space(size_t total_size);
+static block_header_t *find_free_block(size_t total_size);
 
-static block_header_t *find_free_block(size_t size){
-    block_header_t *current = head;
-
-    while (current != NULL){
-        if (current->free && current->size >= size){
-            return current;
-        }
-        current = current->next;
-    }
-
-    return NULL;    
+// aligns the sizes to prevent memory corruption
+static inline size_t align(size_t size){
+    return (size + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1);
 }
 
-static block_header_t *request_space(size_t size){
-    block_header_t *block;
-    block = (block_header_t *)sbrk(size + sizeof(block_header_t));
-    if (block == (void*)-1)
+// asks for additional memory from OS when needed
+static block_header_t *request_space(size_t total_size){
+    block_header_t *block = (block_header_t *)sbrk(total_size);
+
+    if (block == (void *)-1)
         return NULL;
-
-    if (head == NULL){
-        block->next = head;
-        head = block;
-    }
-
-    block->size = size;
-    block->free = 0;
-    block->next = NULL;
-    block->prev = tail;
-
-    if (tail != NULL)
-        tail->next = block;
-
-    tail = block;
 
     return block;
 }
 
-void *my_malloc(size_t size){
-    size = ALLIGN(size);
-    if (size < MIN_ALLOC_SIZE) size = 16;
+static block_header_t *find_free_block(size_t total_size){
+    block_header_t *current = head;
+    while (current != NULL){
+        if (current->is_free && current->size_total >= total_size)
+            return current;
 
-    block_header_t *free_block = find_free_block(size);
-
-    if (free_block){
-        if ((free_block->size - size) < (sizeof(block_header_t) + MIN_ALLOC_SIZE)){
-            free_block->free = 0;
-            return (void *)(free_block + 1);    
-        }
-
-        block_header_t *new_block = (block_header_t*)((char*)free_block + sizeof(block_header_t) + size);
-        new_block->size = free_block->size - size - sizeof(block_header_t); // Subtract header size from the remaining block to prevent heap corruption by over-reporting of the capacity of new block.
-        new_block->free = 1;
-        new_block->next = free_block->next;
-        new_block->prev = free_block;
-
-        if (new_block->next != NULL)
-            new_block->next->prev = new_block;
-        
-        if (tail == free_block) tail = new_block;
-
-        free_block->size = size;
-        free_block->free = 0;
-        free_block->next = new_block;
-        return (void *)(free_block + 1);
-    }
-
-
-    if (free_block == NULL){
-        block_header_t *block = request_space(size);
-        if (block == NULL){
-            return NULL;
-        }
-        
-        return block + 1;
+        current = current->next;
     }
 
     return NULL;
 }
 
-void my_free(void *ptr){
-    if (ptr == NULL)
-        return;
+void *my_malloc(size_t size){
+    size_t aligned_size = align(size);
+    size_t total_size = aligned_size + sizeof(block_header_t);
+
+    if (head == NULL){
+        block_header_t *new_block = request_space(total_size);
+        
+        if (new_block == NULL)
+            return NULL;
+
+        new_block->size_total = total_size;
+        new_block->is_free = 0;
+        new_block->prev = head;
+        new_block->next = tail;
+        head = new_block;
+        tail = new_block;
+        
+        return new_block + 1;
+    }
     
-    block_header_t *header = (block_header_t *)ptr - 1;
-    header->free = 1;
+    block_header_t *free_block = find_free_block(total_size);
 
-    if (header->next != NULL && header->next->free == 1){
-        block_header_t *next_block = header->next;
-        header->size += next_block->size + sizeof(block_header_t);
-        header->next = next_block->next;
-        if (header->next != NULL)
-            header->next->prev = header;
+    if (free_block != NULL){
+        size_t new_size = free_block->size_total - total_size;
+        
+        if (new_size < (sizeof(block_header_t) + ALIGNMENT)){
+            free_block->is_free = 0;
+            return free_block + 1;
+        }
 
-        if (tail == next_block)
-            tail = header;
+        // splitting 
+        block_header_t *remainder = (block_header_t *)((char *)free_block + total_size);
+        remainder->size_total = new_size;
+        remainder->is_free = 1;
+        remainder->next = free_block->next;
+        remainder->prev = free_block;
+        
+        free_block->size_total = total_size;
+        free_block->is_free = 0;
+        free_block->next = remainder;
+        
+        if (remainder->next != NULL)
+            remainder->next->prev = remainder;
+        else
+            tail = remainder;
+
+
+        return free_block + 1;
     }
 
-    if (header->prev != NULL && header->prev->free == 1){
-        block_header_t *prev_block = header->prev;
-        prev_block->size += header->size + sizeof(block_header_t);
-        prev_block->next = header->next; 
-        if (prev_block->next != NULL)
-            prev_block->next->prev = prev_block;
 
-        if (tail == header)
-            tail = prev_block;
+    block_header_t *new_free_block = request_space(total_size);
+
+    if (new_free_block == NULL)
+        return NULL;
+
+    new_free_block->size_total = total_size;
+    new_free_block->is_free = 0;
+    new_free_block->prev = tail;
+    new_free_block->next = NULL;
+    tail->next = new_free_block;
+
+    tail = new_free_block;
+
+    return new_free_block + 1;
+
+}
+
+void my_free(void *ptr){
+    if (!ptr)
+        return;
+
+
+    block_header_t *current_ptr = (block_header_t *)ptr - 1;
+
+    current_ptr->is_free = 1;
+    
+    if (current_ptr->prev != NULL && current_ptr->prev->is_free == 1){
+        
+        current_ptr->prev->size_total += current_ptr->size_total;
+        current_ptr->prev->next = current_ptr->next;
+        
+        if (current_ptr->next != NULL)
+            current_ptr->next->prev = current_ptr->prev;
+
+        current_ptr = current_ptr->prev;
+
     }
 
+    if (current_ptr->next != NULL && current_ptr->next->is_free == 1){
+
+        current_ptr->size_total += current_ptr->next->size_total;
+
+        current_ptr->next = current_ptr->next->next;
+
+        if (current_ptr->next != NULL)
+            current_ptr->next->prev = current_ptr;
+    }
+
+    if (current_ptr->next == NULL)
+        tail = current_ptr;
+
+    if (current_ptr->prev == NULL)
+        head = current_ptr;
+
+}
+
+void *my_calloc(size_t nmemb, size_t size){
+    if (size != 0 && nmemb > SIZE_MAX / size)
+        return NULL;
+
+    unsigned char *mem = my_malloc(nmemb * size);
+    if (!mem)
+        return NULL;
+
+    for (size_t i = 0; i < nmemb * size; i++)
+        *(mem + i)= 0;
+
+    
+    return mem;
+}
+
+void *my_realloc(void *ptr, size_t size){
+    if (ptr == NULL)
+        return my_malloc(size);
+
+    if (size == 0){
+        my_free(ptr);
+        return NULL;
+    }
+
+    block_header_t *current = (block_header_t *)ptr - 1;
+
+    size_t size_data = current->size_total - sizeof(block_header_t);
+
+    if (size < size_data)
+        size_data = size;
+
+    void *mem = my_malloc(size);
+    if (!mem)
+        return NULL;
+
+    unsigned char *src = (unsigned char *)ptr;
+    unsigned char *dest = (unsigned char *)mem;
+    for (size_t i = 0; i < size_data; i++)
+        *dest++ = *src++;
+
+    my_free(ptr);
+
+    return mem;
 }
