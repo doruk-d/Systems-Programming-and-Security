@@ -4,7 +4,8 @@ CFLAGS:= -Wall -Wextra -Werror -Wpedantic -g \
 	-Wno-unused-parameter \
 	-D_POSIX_C_SOURCE=200809L \
 	-O2 \
-	-std=c11
+	-std=c11 \
+	-fsanitize=address 
 
 DEPFLAGS:= -MMD -MP
 VFLAGS:= --leak-check=full --show-leak-kinds=all --track-origins=yes
@@ -16,13 +17,13 @@ BUILD_DIR:= build
 
 SRC:= my_malloc.c test_driver.c
 OBJS:= $(SRC:%.c=$(BUILD_DIR)/%.o)
-DEPS:= $(OBJS:%.o=%.d)
+DEPS:= $(OBJS:%.o=%.d) 
 
 #rules
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $^ -o $@ 
+	$(CC) $(CFLAGS) $^ -o $@ 
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(DEPFLAGS) $< -c -o $@ 
