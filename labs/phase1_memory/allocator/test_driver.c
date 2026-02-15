@@ -32,12 +32,18 @@ int main(){
     srand(time(NULL));
 
     while (count > 0){
-        // we will use a medium size of a requested size which is 512 bytes and we have +1 for size = 0 case
-        size_t size = (rand() % 512) + 1;
+        // we will use a medium size of a requested size which is 512 bytes 
+        size_t size = (rand() % 512);
+        size_t new_size = (rand() % 512);
         int index = rand() % 100;
 
         if (arr[index] == NULL){
-            arr[index] = my_malloc(size);
+            if (index % 2 == 0){
+                arr[index] = my_malloc(size);
+                arr[index] = my_realloc(arr[index], new_size);
+            }
+            else
+                arr[index] = my_calloc(20, size);
         }
         else{
             my_free(arr[index]);
