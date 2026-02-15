@@ -54,8 +54,16 @@ static block_header_t *find_free_block(size_t total_size){
 }
 
 void *my_malloc(size_t size){
+    if (size > (PTRDIFF_MAX - ALIGNMENT))
+        return NULL;
+
     size_t aligned_size = align(size);
+    if (aligned_size > (PTRDIFF_MAX - sizeof(block_header_t)))
+        return NULL;
+
+
     size_t total_size = aligned_size + sizeof(block_header_t);
+
 
     if (head == NULL){
         block_header_t *new_block = request_space(total_size);
@@ -125,8 +133,11 @@ void my_free(void *ptr){
     if (!ptr)
         return;
 
-
     block_header_t *current_ptr = (block_header_t *)ptr - 1;
+    
+    // double free check
+    if (current_ptr->is_free)
+        return;
 
     current_ptr->is_free = 1;
     
