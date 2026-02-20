@@ -1,7 +1,0 @@
-mach create "uart_1"
-
-machine LoadPlatformDescription @platforms/cpus/stm32f103.repl
-
-sysbus LoadELF @build/output.elf
-
-cpu LogFunctionNames true
