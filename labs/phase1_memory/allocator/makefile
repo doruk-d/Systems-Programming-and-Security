@@ -5,10 +5,9 @@ CFLAGS:= -Wall -Wextra -Werror -Wpedantic -g \
 	-D_POSIX_C_SOURCE=200809L \
 	-O2 \
 	-std=c11 \
-	-fsanitize=address 
 
 DEPFLAGS:= -MMD -MP
-VFLAGS:= --leak-check=full --show-leak-kinds=all --track-origins=yes
+VFLAGS:= --leak-check=full --show-leak-kinds=all --track-origins=yes --tool=memcheck
 
 # files
 TARGET:= my_malloc
