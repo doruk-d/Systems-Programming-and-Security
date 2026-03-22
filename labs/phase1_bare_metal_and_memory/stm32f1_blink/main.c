@@ -2,7 +2,6 @@
 
 #define RCC_APB2ENR (*(volatile uint32_t *)(0x40021000 + 0x18))
 #define GPIOA_CRL (*(volatile uint32_t *)(0x40010800 + 0x00))
-#define GPIOA_ODR (*(volatile uint32_t *)(0x40010800 + 0x0C))
 #define GPIOA_BSRR (*(volatile uint32_t *)(0x40010800 + 0x10))
 #define LED 5
 
