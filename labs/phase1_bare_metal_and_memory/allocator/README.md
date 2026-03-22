@@ -4,9 +4,29 @@
 
 - This project aims to build intuition for low-level memory management and systems programming in C.
 
+### Project Structure
+```   
+    allocator/
+    ├── linker.ld
+    ├── makefile
+    ├── my_malloc.c
+    ├── my_malloc.h
+    ├── my_malloc_internal.h
+    ├── startup.c
+    ├── test_driver.c
+    ├── README.md
+    └── build/
+```
+
+**Note**: Uart driver sourced from
+`../../phase3_peripheral_control_and_dma/stm32f401_UART_driver/`
+
+
+
 ### Development Environment
 
 - The allocator was initially prototyped on x86-64 with the purpose of easier debugging and iteration, before being ported to ARM to target microcontroller environments.
+- **Target**: STM32F401RE ARM Cortex-M4
 
 ### Allocator Design
 
