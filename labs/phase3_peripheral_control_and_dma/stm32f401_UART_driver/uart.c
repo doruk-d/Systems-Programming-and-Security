@@ -6,6 +6,7 @@
 #define USART_BASE 0x40004400
 #define RCC_BASE 0x40023800
 #define STK_BASE 0xE000E010
+#define NVIC_ISER_BASE 0xE000E100
 
 #define RCC_AHB1ENR (*(volatile uint32_t *)(RCC_BASE + 0x30))
 #define RCC_APB1ENR (*(volatile uint32_t *)(RCC_BASE + 0x40))
@@ -18,9 +19,30 @@
 #define USART_BRR (*(volatile uint32_t *)(USART_BASE + 0x08))
 #define USART_CR1 (*(volatile uint32_t *)(USART_BASE + 0x0C))
 
+#define NUM_IRQ 38
+#define NVIC_BIT (NUM_IRQ % 32)
+#define NVIC_ISERx (*(volatile uint32_t *)(NVIC_ISER_BASE + (0x04 * (NUM_IRQ / 32))))
+
 #define PIN 2
 #define PIN2 3
+#define RX_BUFF_SIZE 128
+#define TX_BUFF_SIZE 128
 
+static volatile uint8_t rx_buff[RX_BUFF_SIZE];
+static volatile uint32_t head_rx = 0;
+static volatile uint32_t tail_rx = 0;
+
+static volatile uint8_t tx_buff[TX_BUFF_SIZE];
+static volatile uint32_t head_tx = 0;
+static volatile uint32_t tail_tx = 0;
+
+static inline uint32_t rx_available(void){
+    return head_rx != tail_rx;
+}
+
+static inline uint32_t tx_available(void){
+    return head_tx != tail_tx;
+}
 
 static inline void gpio_set_af(uint32_t pin){
     GPIOA_MODER &= ~(3 << (pin * 2));
@@ -61,37 +83,76 @@ uart_err_t uart_init(uint32_t baud){
     // UE enable 
     USART_CR1 |= (1 << 13);
 
+    // RXNEIE enable
+    USART_CR1 |= (1 << 5);
+
+    // NVIC enable
+    NVIC_ISERx |= (1 << NVIC_BIT);
+
+    // enable interrupts globally
+    __asm("cpsie i");
+
     return UART_OK;
 }
 
-void uart_putc(char c){
-    // wait for TXE 
-    while (!((USART_SR >> 7) & 0x1));
+void USART2_IRQHandler(void){
+    if (((USART_SR >> 5) & 0x1)){ 
+        uint8_t c = USART_DR; // read first to clear the RXNE flag so interrupt does not fire again
 
-    USART_DR = c;
+        if (((head_rx + 1) % RX_BUFF_SIZE == tail_rx))
+            return;
+
+        rx_buff[head_rx] = c;
+        
+        head_rx = (head_rx + 1) % RX_BUFF_SIZE;
+    }
+
+    // check if TXE is high, which is the main reason of tx interrupt
+    if (((USART_SR >> 7) & 0x1)){
+        if (tx_available()){
+            USART_DR = tx_buff[tail_tx];
+
+            tail_tx = (tail_tx + 1) % TX_BUFF_SIZE;
+        } 
+        else {
+            // clear the interrupt flag if buffer is empty 
+            USART_CR1 &= ~(1 << 7);
+        }
+    }
+}
+
+void uart_putc(char c){
+    // check if buffer is full, if so drop the byte
+    if ((head_tx + 1) % TX_BUFF_SIZE == tail_tx)
+        return;
+
+    // store the byte
+    tx_buff[head_tx] = c;
+    
+    head_tx = (head_tx + 1) % TX_BUFF_SIZE;
+
+    // enable the interrupt
+    USART_CR1 |= (1 << 7);
 }
 
 void uart_puts(char *s){
     while (*s)
         uart_putc(*s++);
-
-    // make sure all data has been transmitted before returning
-    while (!((USART_SR >> 6) & 0x1));
 }
 
-char uart_getc(void){
+uint8_t uart_getc(void){
     // wait if RXNE has data to read
-    while (!((USART_SR >> 5) & 0x1));
-    
-    char c = USART_DR;
+    while (!rx_available());
 
+    uint8_t c = rx_buff[tail_rx];
+    tail_rx = (tail_rx + 1) % RX_BUFF_SIZE;
     return c;
 
 }
 void uart_gets(char *s, uint32_t max_len){
     uint32_t i = 0;
     while (i < max_len - 1){
-        char ch = uart_getc();
+        uint8_t ch = uart_getc();
 
         uart_putc(ch);
 
