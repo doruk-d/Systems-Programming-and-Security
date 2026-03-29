@@ -12,14 +12,17 @@ extern uint32_t _sstack;
 
 void ResetHandler(void);
 void HardFaultHandler(void);
+void DefaultHandler(void);
+
+typedef void (*isr_t)(void);
 
 __attribute__((section(".isr_vector")))
 
-const uint32_t vector_table[]={
-    (uint32_t)&_estack,
-    (uint32_t)ResetHandler,
-    0, // in cpu this slot is reserved for NMI, since I don't have it implemented I will put a placeholder.
-    (uint32_t)HardFaultHandler
+const isr_t vector_table[]={
+    (isr_t)&_estack,
+    ResetHandler,
+    [2 ... 90] = DefaultHandler,
+    [3] = HardFaultHandler
 };
 
 void ResetHandler(){
@@ -48,5 +51,9 @@ void ResetHandler(){
 }
 
 void HardFaultHandler(){
+    while (1);
+}
+
+void DefaultHandler(){
     while (1);
 }
