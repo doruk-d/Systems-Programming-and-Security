@@ -71,11 +71,11 @@ void *my_malloc(size_t size){
 
     size_t heap_size = (size_t)((char *)&_sstack - (char *)current_break);
 
-    if (size > (heap_size - ALIGNMENT))
+    if (heap_size < ALIGNMENT || size > (heap_size - ALIGNMENT))
         goto exit_malloc;
 
     size_t aligned_size = align(size);
-    if (aligned_size > (heap_size - sizeof(block_header_t)))
+    if (heap_size < sizeof(block_header_t) || aligned_size > (heap_size - sizeof(block_header_t)))
         goto exit_malloc;
 
 
