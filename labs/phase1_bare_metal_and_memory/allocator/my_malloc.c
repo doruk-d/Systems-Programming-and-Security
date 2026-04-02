@@ -63,7 +63,6 @@ static block_header_t *find_free_block(size_t total_size){
 }
 
 void *my_malloc(size_t size){
-    __asm("cpsid i");
 
     if (current_break == NULL)
         current_break = (void *)&_sheap;
@@ -150,13 +149,11 @@ void *my_malloc(size_t size){
     goto exit_malloc;
 
 exit_malloc:
-    __asm("cpsie i");
     return result_p;
 
 }
 
 void my_free(void *ptr){
-    __asm("cpsid i");
 
     if (!ptr)
         goto exit_free;
@@ -199,7 +196,6 @@ void my_free(void *ptr){
         head = current_ptr;
 
 exit_free:
-    __asm("cpsie i");
     return;
 }
 
@@ -249,7 +245,6 @@ void *my_realloc(void *ptr, size_t size){
 }
 
 void wipe_heap(void){
-    __asm("cpsid i");
 
     if (current_break != NULL){
         char *heap_start = (char *)&_sheap;
@@ -263,5 +258,4 @@ void wipe_heap(void){
     
     current_break = (void *)&_sheap;
 
-    __asm("cpsie i");
 }
