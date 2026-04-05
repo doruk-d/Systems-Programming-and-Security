@@ -19,6 +19,7 @@
 
 **Note**: Uart driver sourced from
 `../../phase4_peripheral_control_and_dma/stm32f401_UART_driver/`
+
 linker script sourced from
 `../../shared/`
 
