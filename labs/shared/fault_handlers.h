@@ -3,6 +3,5 @@
 
 void MemManageHandler(void);
 void HardFaultHandler(void);
-void DefaultHandler(void); 
 
 #endif
