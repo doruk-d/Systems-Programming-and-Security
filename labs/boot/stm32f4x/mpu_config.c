@@ -28,13 +28,15 @@ static inline uint32_t mpu_size_val(uint32_t size){
     return (32 - __builtin_clz(size - 1)) - 1;
 }
 
-mpu_err_t mpu_init(void){
+void mpu_init(void){
     // to avoid unexpected behavior disable the interrupts
     __asm__ volatile("cpsid i" ::: "memory");
 
     // check if mpu is present
-    if (((MPU_TYPER >> 8) & 0xFF) == 0x00)
-        return ERR_MPU_NOT_PRESENT;
+    if (((MPU_TYPER >> 8) & 0xFF) == 0x00){
+        __asm__ volatile("bkpt #0");
+        while(1); // safety net in case execution continues
+    }
 
     // disable mpu and its features for now
     MPU_CTRL = 0;
@@ -153,7 +155,6 @@ mpu_err_t mpu_init(void){
     // enable memory management fault
     SHCSR |= (1 << 16);
 
-    return MPU_CONFIG_SUCCESS;
 }
 
 

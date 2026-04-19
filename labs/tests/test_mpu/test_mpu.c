@@ -54,7 +54,7 @@ static void mem_fault_trigger(void){
 }
 
 int main(void){
-    if (mpu_init() == ERR_MPU_NOT_PRESENT) __asm__ volatile("bkpt #1");
+    mpu_init();
 
     rasr_check();
     mem_fault_trigger();
