@@ -1,3 +1,4 @@
+#include "mpu_config.h"
 #include "system_clock.h"
 #include "fault_handlers.h"
 #include <stdint.h>
@@ -37,6 +38,9 @@ void ResetHandler(void){
 
     while (s_bss < e_bss)
         *s_bss++ = 0;
+
+    // call mpu_init as early as possible; in this case right after memory and stack model set up 
+    mpu_init();
 
     system_clock_init();
 
